@@ -5,13 +5,18 @@ import cors from "cors";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import { matchRouter } from "./routes/matches.js";
+import http from "http";
+import { attachWebSocketServer } from "./ws/server.js";
 
 // Load environment variables
 dotenv.config();
 
-const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 5000;
 const NODE_ENV = process.env.NODE_ENV || "development";
+const HOST = process.env.HOST || "0.0.0.0";
+
+const app = express();
+const server = http.createServer(app);
 
 // --- SECURITY MIDDLEWARE ---
 // 1. Helmet helps secure Express apps by setting various HTTP headers.
@@ -82,14 +87,23 @@ app.use((err, req, res, next) => {
   });
 });
 
+const { broadcastMatchCreated } = attachWebSocketServer(server);
+
+app.locals.broadcastMatchCreated = broadcastMatchCreated;
+
 // --- SERVER INITIALIZATION ---
 
-const server = app.listen(PORT, () => {
+const socketServer = server.listen(PORT, HOST, () => {
+  const baseUrl =
+    HOST === "0.0.0.0" ? `http://localhost:${PORT}` : `http://${HOST}:${PORT}`;
   console.log(`
   🚀 Server is running in ${NODE_ENV} mode
-  🔗 URL: http://localhost:${PORT}
+  🔗 URL: ${baseUrl}
   🏥 Health: http://localhost:${PORT}/health
   `);
+  console.log(
+    `WebSocket server is running on ${baseUrl.replace("http", "ws")}/ws`,
+  );
 });
 
 // --- GRACEFUL SHUTDOWN ---
@@ -97,14 +111,14 @@ const server = app.listen(PORT, () => {
 process.on("unhandledRejection", (err) => {
   console.error("UNHANDLED REJECTION! 💥 Shutting down...");
   console.error(err.name, err.message);
-  server.close(() => {
+  socketServer.close(() => {
     process.exit(1);
   });
 });
 
 process.on("SIGTERM", () => {
   console.info("SIGTERM received. Shutting down gracefully...");
-  server.close(() => {
+  socketServer.close(() => {
     console.log("Process terminated.");
   });
 });
