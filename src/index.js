@@ -4,6 +4,7 @@ import helmet from "helmet";
 import cors from "cors";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
+import { matchRouter } from "./routes/matches.js";
 
 // Load environment variables
 dotenv.config();
@@ -31,7 +32,7 @@ const limiter = rateLimit({
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   message: "Too many requests from this IP, please try again after 15 minutes",
 });
-app.use("/api", limiter);
+app.use("/", limiter);
 
 // --- UTILITY MIDDLEWARE ---
 // 4. Request logging
@@ -56,10 +57,8 @@ app.get("/health", (req, res) => {
   });
 });
 
-// Example API Route
-app.get("/api/v1/welcome", (req, res) => {
-  res.json({ message: "Welcome to the Production Grade Express Server!" });
-});
+// API Routes
+app.use("/matches", matchRouter);
 
 // --- ERROR HANDLING ---
 
